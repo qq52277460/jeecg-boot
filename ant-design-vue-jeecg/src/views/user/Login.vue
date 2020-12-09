@@ -5,7 +5,7 @@
         :activeKey="customActiveKey"
         :tabBarStyle="{ textAlign: 'center', borderBottom: 'unset' }"
         @change="handleTabClick">
-        <a-tab-pane key="tab1" tab="账号密码登陆">
+        <a-tab-pane key="tab1" tab="账号密码登录">
           <a-form-item>
             <a-input
               size="large"
@@ -43,13 +43,12 @@
             <a-col :span="8" style="text-align: right">
               <img v-if="requestCodeSuccess" style="margin-top: 2px;" :src="randCodeImage" @click="handleChangeCheckCode"/>
               <img v-else style="margin-top: 2px;" src="../../assets/checkcode.png" @click="handleChangeCheckCode"/>
-              <!--<j-graphic-code @success="generateCode" ref="jgraphicCodeRef" style="float: right" remote></j-graphic-code>-->
             </a-col>
           </a-row>
 
 
         </a-tab-pane>
-        <a-tab-pane key="tab2" tab="手机号登陆">
+        <a-tab-pane key="tab2" tab="手机号登录">
           <a-form-item>
             <a-input
               v-decorator="['mobile',validatorRules.mobile]"
@@ -85,7 +84,7 @@
       </a-tabs>
 
       <a-form-item>
-        <a-checkbox v-decorator="['rememberMe', {initialValue: true, valuePropName: 'checked'}]" >自动登陆</a-checkbox>
+        <a-checkbox v-decorator="['rememberMe', {initialValue: true, valuePropName: 'checked'}]" >自动登录</a-checkbox>
         <router-link :to="{ name: 'alteration'}" class="forge-password" style="float: right;">
           忘记密码
         </router-link>
@@ -105,16 +104,6 @@
           :disabled="loginBtn">确定
         </a-button>
       </a-form-item>
-
-      <!-- <div class="user-login-other">
-        <span>其他登陆方式</span>
-        <a><a-icon class="item-icon" type="alipay-circle"></a-icon></a>
-        <a><a-icon class="item-icon" type="taobao-circle"></a-icon></a>
-        <a><a-icon class="item-icon" type="weibo-circle"></a-icon></a>
-        <router-link class="register" :to="{ name: 'register' }">
-          注册账户
-        </router-link>
-      </div>-->
     </a-form>
 
     <two-step-captcha
@@ -122,46 +111,8 @@
       :visible="stepCaptchaVisible"
       @success="stepCaptchaSuccess"
       @cancel="stepCaptchaCancel"></two-step-captcha>
-
-    <a-modal
-      title="登录部门选择"
-      :width="450"
-      :visible="departVisible"
-      :closable="false"
-      :maskClosable="false">
-
-      <template slot="footer">
-        <a-button type="primary" @click="departOk">确认</a-button>
-      </template>
-
-      <a-form>
-        <a-form-item
-          :labelCol="{span:4}"
-          :wrapperCol="{span:20}"
-          style="margin-bottom:10px"
-          :validate-status="validate_status">
-          <a-tooltip placement="topLeft" >
-            <template slot="title">
-              <span>您隶属于多部门，请选择登录部门</span>
-            </template>
-            <a-avatar style="backgroundColor:#87d068" icon="gold" />
-          </a-tooltip>
-          <a-select @change="departChange" :class="{'valid-error':validate_status=='error'}" placeholder="请选择登录部门" style="margin-left:10px;width: 80%">
-            <a-icon slot="suffixIcon" type="gold" />
-            <a-select-option
-              v-for="d in departList"
-              :key="d.id"
-              :value="d.orgCode">
-              {{ d.departName }}
-            </a-select-option>
-          </a-select>
-        </a-form-item>
-      </a-form>
-
-
-
-    </a-modal>
-
+    <login-select-tenant ref="loginSelect" @success="loginSelectOk"></login-select-tenant>
+    <third-login ref="thirdLogin"></third-login>
   </div>
 </template>
 
@@ -173,16 +124,17 @@
   import { timeFix } from "@/utils/util"
   import Vue from 'vue'
   import { ACCESS_TOKEN ,ENCRYPTED_STRING} from "@/store/mutation-types"
-  import JGraphicCode from '@/components/jeecg/JGraphicCode'
   import { putAction,postAction,getAction } from '@/api/manage'
   import { encryption , getEncryptedString } from '@/utils/encryption/aesEncrypt'
   import store from '@/store/'
   import { USER_INFO } from "@/store/mutation-types"
-
+  import ThirdLogin from './third/ThirdLogin'
+  import LoginSelectTenant from "./LoginSelectTenant";
   export default {
     components: {
+      LoginSelectTenant,
       TwoStepCaptcha,
-      JGraphicCode
+      ThirdLogin
     },
     data () {
       return {
@@ -211,15 +163,10 @@
         verifiedCode:"",
         inputCodeContent:"",
         inputCodeNull:true,
-
-        departList:[],
-        departVisible:false,
-        departSelected:"",
         currentUsername:"",
-        validate_status:"",
         currdatetime:'',
         randCodeImage:'',
-        requestCodeSuccess:false
+        requestCodeSuccess:false,
       }
     },
     created () {
@@ -232,7 +179,7 @@
       // update-end- --- author:scott ------ date:20190805 ---- for:密码加密逻辑暂时注释掉，有点问题
     },
     methods: {
-      ...mapActions([ "Login", "Logout","PhoneLogin" ]),
+      ...mapActions(['Login', 'Logout', 'PhoneLogin']),
       // handler
       handleUsernameOrEmail (rule, value, callback) {
         const regex = /^([a-zA-Z0-9_-])+@([a-zA-Z0-9_-])+((\.[a-zA-Z0-9_-]{2,3}){1,2})$/;
@@ -251,7 +198,7 @@
         let that = this
         let loginParams = {};
         that.loginBtn = true;
-        // 使用账户密码登陆
+        // 使用账户密码登录
         if (that.customActiveKey === 'tab1') {
           that.form.validateFields([ 'username', 'password','inputCode', 'rememberMe' ], { force: true }, (err, values) => {
             if (!err) {
@@ -266,7 +213,7 @@
               loginParams.checkKey = that.currdatetime
               console.log("登录参数",loginParams)
               that.Login(loginParams).then((res) => {
-                this.departConfirm(res)
+                this.$refs.loginSelect.show(res.result)
               }).catch((err) => {
                 that.requestFailed(err);
               });
@@ -276,7 +223,7 @@
               that.loginBtn = false;
             }
           })
-          // 使用手机号登陆
+          // 使用手机号登录
         } else {
           that.form.validateFields([ 'mobile', 'captcha', 'rememberMe' ], { force: true }, (err, values) => {
             if (!err) {
@@ -285,7 +232,7 @@
               loginParams.remember_me = values.rememberMe
               that.PhoneLogin(loginParams).then((res) => {
                 console.log(res.result);
-                this.departConfirm(res)
+                this.$refs.loginSelect.show(res.result)
               }).catch((err) => {
                 that.requestFailed(err);
               })
@@ -358,10 +305,9 @@
         })
       },
       loginSuccess () {
-        // update-begin- author:sunjianlei --- date:20190812 --- for: 登录成功后不解除禁用按钮，防止多次点击
-        // this.loginBtn = false
-        // update-end- author:sunjianlei --- date:20190812 --- for: 登录成功后不解除禁用按钮，防止多次点击
-        this.$router.push({ name: "dashboard" })
+        this.$router.push({ path: "/dashboard/analysis" }).catch(()=>{
+          console.log('登录跳转首页出错,这个错误从哪里来的')
+        })
         this.$notification.success({
           message: '欢迎',
           description: `${timeFix()}，欢迎回来`,
@@ -403,64 +349,8 @@
       inputCodeChange(e){
         this.inputCodeContent = e.target.value
       },
-      departConfirm(res){
-        if(res.success){
-          let multi_depart = res.result.multi_depart
-          //0:无部门 1:一个部门 2:多个部门
-          if(multi_depart==0){
-            this.loginSuccess()
-            this.$notification.warn({
-              message: '提示',
-              description: `您尚未归属部门,请确认账号信息`,
-              duration:3
-            });
-          }else if(multi_depart==2){
-            this.departVisible=true
-            this.currentUsername=this.form.getFieldValue("username")
-            this.departList = res.result.departs
-          }else {
-            this.loginSuccess()
-          }
-        }else{
-          this.requestFailed(res)
-          this.Logout();
-        }
-      },
-      departOk(){
-        if(!this.departSelected){
-          this.validate_status='error'
-          return false
-        }
-       let obj = {
-          orgCode:this.departSelected,
-          username:this.form.getFieldValue("username")
-        }
-        putAction("/sys/selectDepart",obj).then(res=>{
-          if(res.success){
-            const userInfo = res.result.userInfo;
-            Vue.ls.set(USER_INFO, userInfo, 7 * 24 * 60 * 60 * 1000);
-            store.commit('SET_INFO', userInfo);
-            //console.log("---切换组织机构---userInfo-------",store.getters.userInfo.orgCode);
-            this.departClear()
-            this.loginSuccess()
-          }else{
-            this.requestFailed(res)
-            this.Logout().then(()=>{
-              this.departClear()
-            });
-          }
-        })
-      },
-      departClear(){
-        this.departList=[]
-        this.departSelected=""
-        this.currentUsername=""
-        this.departVisible=false
-        this.validate_status=''
-      },
-      departChange(value){
-        this.validate_status='success'
-        this.departSelected = value
+      loginSelectOk(){
+        this.loginSuccess()
       },
     getRouterData(){
       this.$nextTick(() => {

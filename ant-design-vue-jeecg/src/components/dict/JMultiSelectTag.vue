@@ -10,6 +10,9 @@
     :disabled="disabled"
     mode="multiple"
     :placeholder="placeholder"
+    :getPopupContainer="(node) => node.parentNode"
+    optionFilterProp="children"
+    :filterOption="filterOption"
     allowClear>
     <a-select-option
       v-for="(item,index) in dictOptions"
@@ -24,7 +27,7 @@
 </template>
 
 <script>
-  import {ajaxGetDictItems} from '@/api/api'
+  import {ajaxGetDictItems,getDictItemsFromCache} from '@/api/api'
   export default {
     name: 'JMultiSelectTag',
     props: {
@@ -49,11 +52,17 @@
         this.tagType = this.type
       }
       //获取字典数据
-      this.initDictData();
+      //this.initDictData();
     },
     watch:{
       options: function(val){
         this.setCurrentDictOptions(val);
+      },
+      dictCode:{
+        immediate:true,
+        handler() {
+          this.initDictData()
+        },
       },
       value (val) {
         if(!val){
@@ -68,6 +77,11 @@
         if(this.options && this.options.length>0){
           this.dictOptions = [...this.options]
         }else{
+          //优先从缓存中读取字典配置
+          if(getDictItemsFromCache(this.dictCode)){
+            this.dictOptions = getDictItemsFromCache(this.dictCode);
+            return
+          }
           //根据字典Code, 初始化字典数组
           ajaxGetDictItems(this.dictCode, null).then((res) => {
             if (res.success) {
@@ -85,7 +99,12 @@
       },
       getCurrentDictOptions(){
         return this.dictOptions
+      },
+      // update--begin--autor:lvdandan-----date:20201120------for：LOWCOD-1086 下拉多选框,搜索时只字典code进行搜索不能通过字典text搜索
+      filterOption(input, option) {
+        return option.componentOptions.children[0].children[0].text.toLowerCase().indexOf(input.toLowerCase()) >= 0
       }
+      // update--end--autor:lvdandan-----date:20201120------for：LOWCOD-1086 下拉多选框,搜索时只字典code进行搜索不能通过字典text搜索
     },
     model: {
       prop: 'value',

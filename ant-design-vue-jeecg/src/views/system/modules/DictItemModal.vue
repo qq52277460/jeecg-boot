@@ -15,14 +15,14 @@
           :labelCol="labelCol"
           :wrapperCol="wrapperCol"
           label="名称">
-          <a-input placeholder="请输入名称" v-decorator="['itemText', validatorRules.itemText]"/>
+          <a-input placeholder="请输入名称" v-decorator.trim="['itemText', validatorRules.itemText]"/>
         </a-form-item>
 
         <a-form-item
           :labelCol="labelCol"
           :wrapperCol="wrapperCol"
           label="数据值">
-          <a-input placeholder="请输入数据值" v-decorator="['itemValue', validatorRules.itemValue]"/>
+          <a-input placeholder="请输入数据值" v-decorator.trim="['itemValue', validatorRules.itemValue]"/>
         </a-form-item>
 
         <a-form-item
@@ -79,7 +79,7 @@
         form: this.$form.createForm(this),
         validatorRules: {
           itemText: {rules: [{required: true, message: '请输入名称!'}]},
-          itemValue: {rules: [{required: true, message: '请输入数据值!'}]},
+          itemValue: {rules: [{required: true, message: '请输入数据值!'},{validator: this.validateItemValue}]},
         },
       }
     },
@@ -153,6 +153,18 @@
         this.$emit('close');
         this.visible = false;
       },
+      validateItemValue(rule, value, callback){
+        if(value){
+          let reg=new RegExp("[`_~!@#$^&*()=|{}'.<>《》/?！￥（）—【】‘；：”“。，、？]")
+          if(reg.test(value)){
+            callback("数据值不能包含特殊字符！")
+          }else{
+            callback()
+          }
+        }else{
+          callback()
+        }
+      }
     }
   }
 </script>

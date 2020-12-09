@@ -26,7 +26,7 @@ public class SysAnnouncement implements Serializable {
     /**
      * id
      */
-    @TableId(type = IdType.ID_WORKER_STR)
+    @TableId(type = IdType.ASSIGN_ID)
     private java.lang.String id;
     /**
      * 标题
@@ -140,4 +140,8 @@ public class SysAnnouncement implements Serializable {
      * 组件/路由 地址
      */
     private java.lang.String openPage;
+    /**
+     * 摘要
+     */
+    private java.lang.String msgAbstract;
 }
