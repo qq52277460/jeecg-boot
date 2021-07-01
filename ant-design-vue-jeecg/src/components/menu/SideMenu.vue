@@ -11,6 +11,7 @@
       :menu="menus"
       :theme="theme"
       @select="onSelect"
+      @updateMenuTitle="onUpdateMenuTitle"
       :mode="mode"
       :style="smenuStyle">
     </s-menu>
@@ -19,7 +20,7 @@
 </template>
 
 <script>
-  import ALayoutSider from "ant-design-vue/es/layout/Sider"
+  import ALayoutSider from 'ant-design-vue/es/layout/Sider'
   import Logo from '../tools/Logo'
   import SMenu from './index'
   import { mixin, mixinDevice } from '@/utils/mixin.js'
@@ -68,6 +69,9 @@
     methods: {
       onSelect (obj) {
         this.$emit('menuSelect', obj)
+      },
+      onUpdateMenuTitle (obj) {
+        this.$emit('updateMenuTitle', obj)
       }
     }
   }
@@ -136,41 +140,8 @@
           background-color: #999999;
         }
       }
-      background-color: rgb(48, 65, 86);
-      /deep/ .ant-menu-submenu-title:hover{
-        background-color: #263445;
-      }
-      /deep/ .ant-menu-item:hover{
-        background-color: #263445;
-      }
-      /deep/ .ant-menu-item-selected {
-        background-color: #263445;
-      }
-      /deep/ .ant-menu-item-selected i{
-        color: rgb(24, 144, 255);
-      }
-      /deep/ .ant-menu-item-selected span{
-        color: rgb(24, 144, 255);
-      }
-      /deep/ .ant-menu-inline.ant-menu-sub{
-        background-color: #1f2d3d;
-      }
-      /deep/ .ant-menu-inline.ant-menu-sub li:hover{
-        background-color: #1f2d3d;
-      }
-      /deep/ .ant-menu-inline.ant-menu-sub .ant-menu-submenu-title:hover{
-        background-color: #1f2d3d;
-      }
-      /deep/ .ant-menu-inline.ant-menu-sub .ant-menu-item-selected{
-        background-color: #1f2d3d;
-      }
-      /deep/ .ant-menu-inline.ant-menu-sub .ant-menu-item-selected span{
-        color: rgb(24, 144, 255);
-      }
-      /deep/ .ant-menu-inline.ant-menu-sub .ant-menu-item-selected i{
-        color: rgb(24, 144, 255);
-      }
     }
+
   }
 
   /* update_end author:sunjianlei date:20190509 for: 修改侧边导航栏滚动条的样式 */

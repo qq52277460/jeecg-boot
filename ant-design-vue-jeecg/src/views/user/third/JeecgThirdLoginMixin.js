@@ -148,7 +148,7 @@ export const JeecgThirdLoginMixin = {
         const hide = this.$message.loading('验证码发送中..', 0)
         let smsParams = {}
         smsParams.mobile = this.thirdPhone
-        smsParams.smsmode = '1'
+        smsParams.smsmode = '0'
         postAction('/sys/sms', smsParams).then(res => {
           if (!res.success) {
             setTimeout(hide, 0)
@@ -175,7 +175,7 @@ export const JeecgThirdLoginMixin = {
           this.bindingPhoneModal = false
           this.doThirdLogin(res.result)
         } else {
-          this.$message.$warning(res.message)
+          this.$message.warning(res.message)
         }
       })
     },

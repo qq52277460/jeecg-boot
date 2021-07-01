@@ -1,12 +1,9 @@
 package org.jeecg.modules.system.controller;
 
-import java.io.IOException;
-import java.util.*;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.jeecg.common.api.vo.Result;
@@ -16,34 +13,32 @@ import org.jeecg.common.system.query.QueryGenerator;
 import org.jeecg.common.system.util.JwtUtil;
 import org.jeecg.common.system.vo.LoginUser;
 import org.jeecg.common.util.ImportExcelUtil;
+import org.jeecg.common.util.YouBianCodeUtil;
 import org.jeecg.common.util.oConvertUtils;
 import org.jeecg.modules.system.entity.SysDepart;
 import org.jeecg.modules.system.entity.SysUser;
 import org.jeecg.modules.system.model.DepartIdModel;
 import org.jeecg.modules.system.model.SysDepartTreeModel;
 import org.jeecg.modules.system.service.ISysDepartService;
-import org.jeecg.modules.system.service.ISysPositionService;
 import org.jeecg.modules.system.service.ISysUserDepartService;
 import org.jeecg.modules.system.service.ISysUserService;
-import org.jeecg.modules.system.util.FindsDepartsChildrenUtil;
 import org.jeecgframework.poi.excel.ExcelImportUtil;
 import org.jeecgframework.poi.excel.def.NormalExcelConstants;
 import org.jeecgframework.poi.excel.entity.ExportParams;
 import org.jeecgframework.poi.excel.entity.ImportParams;
 import org.jeecgframework.poi.excel.view.JeecgEntityExcelView;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.servlet.ModelAndView;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-
-import lombok.extern.slf4j.Slf4j;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.*;
 
 /**
  * <p>
@@ -111,6 +106,51 @@ public class SysDepartController {
 			log.error(e.getMessage(),e);
 		}
 		return result;
+	}
+
+	/**
+	 * 异步查询部门list
+	 *
+	 * @return
+	 */
+	@RequestMapping(value = "/queryDepartTreeSync", method = RequestMethod.GET)
+	public Result<List<SysDepartTreeModel>> queryDepartTreeSync(@RequestParam(name = "pid", required = false) String parentId) {
+		Result<List<SysDepartTreeModel>> result = new Result<>();
+		try {
+			List<SysDepartTreeModel> list = sysDepartService.queryTreeListByPid(parentId);
+			result.setResult(list);
+			result.setSuccess(true);
+		} catch (Exception e) {
+			log.error(e.getMessage(),e);
+		}
+		return result;
+	}
+
+	/**
+	 * 获取某个部门的所有父级部门的ID
+	 *
+	 * @param departId 根据departId查
+	 * @param orgCode  根据orgCode查，departId和orgCode必须有一个不为空
+	 */
+	@GetMapping("/queryAllParentId")
+	public Result queryParentIds(
+			@RequestParam(name = "departId", required = false) String departId,
+			@RequestParam(name = "orgCode", required = false) String orgCode
+	) {
+		try {
+			JSONObject data;
+			if (oConvertUtils.isNotEmpty(departId)) {
+				data = sysDepartService.queryAllParentIdByDepartId(departId);
+			} else if (oConvertUtils.isNotEmpty(orgCode)) {
+				data = sysDepartService.queryAllParentIdByOrgCode(orgCode);
+			} else {
+				return Result.error("departId 和 orgCode 不能都为空！");
+			}
+			return Result.OK(data);
+		} catch (Exception e) {
+			log.error(e.getMessage(), e);
+			return Result.error(e.getMessage());
+		}
 	}
 
 	/**
@@ -332,7 +372,7 @@ public class SysDepartController {
             params.setNeedSave(true);
             try {
             	// orgCode编码长度
-            	int codeLength = 3;
+            	int codeLength = YouBianCodeUtil.zhanweiLength;
                 listSysDeparts = ExcelImportUtil.importExcel(file.getInputStream(), SysDepart.class, params);
                 //按长度排序
                 Collections.sort(listSysDeparts, new Comparator<SysDepart>() {
@@ -362,6 +402,9 @@ public class SysDepartController {
                 	}else{
                 		sysDepart.setParentId("");
 					}
+                    //update-begin---author:liusq   Date:20210223  for：批量导入部门以后，不能追加下一级部门 #2245------------
+					sysDepart.setOrgType(sysDepart.getOrgCode().length()/codeLength+"");
+                    //update-end---author:liusq   Date:20210223  for：批量导入部门以后，不能追加下一级部门 #2245------------
 					sysDepart.setDelFlag(CommonConstant.DEL_FLAG_0.toString());
 					ImportExcelUtil.importDateSaveOne(sysDepart, ISysDepartService.class, errorMessageList, num, CommonConstant.SQL_INDEX_UNIQ_DEPART_ORG_CODE);
 					num++;

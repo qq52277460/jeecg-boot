@@ -3,7 +3,7 @@
     <div class="user-login-other">
       <span>其他登录方式</span>
       <a @click="onThirdLogin('github')" title="github"><a-icon class="item-icon" type="github"></a-icon></a>
-      <a @click="onThirdLogin('wechat_enterprise')" title="企业微信"><a-icon class="item-icon" type="wechat"></a-icon></a>
+      <a @click="onThirdLogin('wechat_enterprise')" title="企业微信"> <icon-font class="item-icon" type="icon-qiyeweixin3" /></a>
       <a @click="onThirdLogin('dingtalk')" title="钉钉"><a-icon class="item-icon" type="dingding"></a-icon></a>
       <a @click="onThirdLogin('wechat_open')" title="微信"><a-icon class="item-icon" type="wechat"></a-icon></a>
     </div>
@@ -37,10 +37,10 @@
         </a-button>
       </template>
       <div class="ant-modal-confirm-body-wrapper">
-        <a-form-item>
+        <a-form-model-item>
           <span>绑定手机号</span>
-        </a-form-item>
-        <a-form-item>
+        </a-form-model-item>
+        <a-form-model-item>
           <a-input
               size="large"
               type="text"
@@ -48,11 +48,11 @@
               v-model="thirdPhone">
             <a-icon slot="prefix" type="mobile" :style="{ color: 'rgba(0,0,0,.25)' }"/>
           </a-input>
-        </a-form-item>
+        </a-form-model-item>
 
         <a-row :gutter="16">
           <a-col class="gutter-row" :span="16">
-            <a-form-item>
+            <a-form-model-item>
               <a-input
                   size="large"
                   type="text"
@@ -60,7 +60,7 @@
                   v-model="thirdCaptcha">
                 <a-icon slot="prefix" type="mail" :style="{ color: 'rgba(0,0,0,.25)' }"/>
               </a-input>
-            </a-form-item>
+            </a-form-model-item>
           </a-col>
           <a-col class="gutter-row" :span="8">
             <a-button
@@ -78,9 +78,18 @@
 
 <script>
 import { JeecgThirdLoginMixin } from '@views/user/third/JeecgThirdLoginMixin'
+import { Icon } from 'ant-design-vue';
+
+const IconFont = Icon.createFromIconfontCN({
+ // scriptUrl: '//at.alicdn.com/t/font_2316098_umqusozousr.js',
+  scriptUrl: '/cdn/font-icon/font_2316098_umqusozousr.js',
+});
 export default {
   name: 'thirdLogin',
   mixins: [JeecgThirdLoginMixin],
+  components: {
+    IconFont,
+  }
 }
 </script>
 

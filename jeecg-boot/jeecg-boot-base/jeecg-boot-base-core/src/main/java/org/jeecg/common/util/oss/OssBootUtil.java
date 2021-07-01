@@ -111,7 +111,9 @@ public class OssBootUtil {
               orgName=file.getName();
             }
             orgName = CommonUtils.getFileName(orgName);
-            String fileName = orgName.substring(0, orgName.lastIndexOf(".")) + "_" + System.currentTimeMillis() + orgName.substring(orgName.indexOf("."));
+            String fileName = orgName.indexOf(".")==-1
+                              ?orgName + "_" + System.currentTimeMillis()
+                              :orgName.substring(0, orgName.lastIndexOf(".")) + "_" + System.currentTimeMillis() + orgName.substring(orgName.lastIndexOf("."));
             if (!fileDir.endsWith("/")) {
                 fileDir = fileDir.concat("/");
             }
@@ -136,6 +138,19 @@ public class OssBootUtil {
             return null;
         }
         return FILE_URL;
+    }
+
+    /**
+     * 获取原始URL
+    * @param url: 原始URL
+    * @Return: java.lang.String
+    */
+    public static String getOriginalUrl(String url) {
+        String originalDomain = "https://" + bucketName + "." + endPoint;
+        if(url.indexOf(staticDomain)!=-1){
+            url = url.replace(staticDomain,originalDomain);
+        }
+        return url;
     }
 
     /**

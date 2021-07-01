@@ -1,6 +1,6 @@
 import XEUtils from 'xe-utils'
 import PropTypes from 'ant-design-vue/es/_util/vue-types'
-import { JVXETypes } from '@/components/jeecg/JVxeTable/index'
+import { JVXETypes } from '@/components/jeecg/JVxeTable/jvxeTypes'
 import VxeWebSocketMixins from '../mixins/vxe.web.socket.mixins'
 import { initDictOptions } from '@/components/dict/JDictSelectUtil'
 
@@ -13,7 +13,7 @@ import JVxeDetailsModal from './JVxeDetailsModal'
 import JVxePagination from './JVxePagination'
 import { cloneObject, getVmParentByName, pushIfNotExist, randomString, simpleDebounce } from '@/utils/util'
 import { UtilTools } from 'vxe-table/packages/tools/src/utils'
-import { getNoAuthCols } from "@/utils/authFilter"
+import { getNoAuthCols } from '@/utils/authFilter'
 
 export default {
   name: 'JVxeTable',
@@ -95,6 +95,9 @@ export default {
     // 是否异步删除行，如果你要实现异步删除，那么需要把这个选项开启，
     // 在remove事件里调用confirmRemove方法才会真正删除（除非删除的全是新增的行）
     asyncRemove: PropTypes.bool.def(false),
+    // 是否一直显示组件，如果为false则只有点击的时候才出现组件
+    // 注：该参数不能动态修改；如果行、列字段多的情况下，会根据机器性能造成不同程度的卡顿。
+    alwaysEdit: PropTypes.bool.def(false),
   },
   data() {
     return {
@@ -188,6 +191,21 @@ export default {
           }
         }
         // update--begin--autor:lvdandan-----date:20201019------for:LOWCOD-882 【新行编辑】列表上带按钮的遮挡问题
+
+        // update--begin--autor:lvdandan-----date:20201211------for:JT-118 【online】 日期、时间控件长度较小
+        if (column.$type === JVXETypes.datetime || column.$type === JVXETypes.userSelect || column.$type === JVXETypes.departSelect) {
+          let width = column.width && column.width.endsWith('px')?Number.parseInt(column.width.substr(0,column.width.length-2)):0;
+          if(width <= 190){
+            column.width = '190px'
+          }
+        }
+        if (column.$type === JVXETypes.date) {
+          let width = column.width && column.width.endsWith('px')?Number.parseInt(column.width.substr(0,column.width.length-2)):0;
+          if(width <= 135){
+            column.width = '135px'
+          }
+        }
+        // update--end--autor:lvdandan-----date:20201211------for:JT-118 【online】 日期、时间控件长度较小
       })
       return this._innerColumns
     },
@@ -339,7 +357,7 @@ export default {
                   col.visible = false
                 } else if (enhanced.switches.editRender) {
                   renderName = 'editRender'
-                  renderOptions.type = enhanced.switches.visible ? 'visible' : 'default'
+                  renderOptions.type = (enhanced.switches.visible || this.alwaysEdit) ? 'visible' : 'default'
                 }
               } else {
                 renderOptions.name = JVXETypes._prefix + JVXETypes.normal
@@ -709,6 +727,11 @@ export default {
         deleteData: this.getDeleteData()
       }
     },
+    /** 获取表格表单里的值 */
+    getValues(callback, rowIds) {
+      let tableData = this.getTableData({rowIds: rowIds})
+      callback('', tableData)
+    },
     /** 获取表格数据 */
     getTableData(options = {}) {
       let {rowIds} = options
@@ -887,7 +910,11 @@ export default {
         }
       })
     },
-
+    //options自定义赋值 刷新
+    virtualRefresh(){
+      this.scrolling = true
+      this.closeScrolling()
+    },
     // 设置 this.scrolling 防抖模式
     closeScrolling: simpleDebounce(function () {
       this.scrolling = false
@@ -1052,7 +1079,7 @@ export default {
       // 添加默认值
       xTable.tableFullColumn.forEach(column => {
         let col = column.own
-        if (record[col.key] == null || record[col.key] === '') {
+        if (col.key && (record[col.key] == null || record[col.key] === '')) {
           // 设置默认值
           let createValue = getEnhancedMixins(col.$type || col.type, 'createValue')
           record[col.key] = createValue({row: record, column, $table: xTable})
@@ -1203,7 +1230,7 @@ export default {
 // 兼容 online 的规则
 const fooPatterns = [
   {title: '非空', value: '*', pattern: /^.+$/},
-  {title: '6到16位数字', value: 'n6-16', pattern: /^\d{6,18}$/},
+  {title: '6到16位数字', value: 'n6-16', pattern: /^\d{6,16}$/},
   {title: '6到16位任意字符', value: '*6-16', pattern: /^.{6,16}$/},
   {title: '6到18位字母', value: 's6-18', pattern: /^[a-z|A-Z]{6,18}$/},
   {title: '网址', value: 'url', pattern: /^(?:([A-Za-z]+):)?(\/{0,3})([0-9.\-A-Za-z]+)(?::(\d+))?(?:\/([^?#]*))?(?:\?([^#]*))?(?:#(.*))?$/},

@@ -11,13 +11,13 @@
       <a-col>
         <!-- 操作按钮 -->
         <div v-if="actionButton" class="action-button">
-          <a-button type="primary" icon="plus" @click="handleClickAdd" :disabled="disabled">新增</a-button>
+          <a-button v-if="buttonPermission('add')" type="primary" icon="plus" @click="handleClickAdd" :disabled="disabled">新增</a-button>
           <span class="gap"></span>
           <template v-if="selectedRowIds.length>0">
             <a-popconfirm
               :title="`确定要删除这 ${selectedRowIds.length} 项吗?`"
               @confirm="handleConfirmDelete">
-              <a-button type="primary" icon="minus" :disabled="disabled">删除</a-button>
+              <a-button v-if="buttonPermission('batch_delete')" type="primary" icon="minus" :disabled="disabled">删除</a-button>
               <span class="gap"></span>
             </a-popconfirm>
             <template v-if="showClearSelectButton">
@@ -59,7 +59,7 @@
               v-show="col.type !== formTypes.hidden"
               class="td"
               :key="col.key"
-              :style="buildTdStyle(col,true)">
+              :style="buildTdStyle(col)">
 
               <span>{{ col.title }}</span>
             </div>
@@ -188,6 +188,7 @@
                           :getPopupContainer="getParentContainer"
                           :placeholder="replaceProps(col, col.placeholder)"
                           :filterOption="(i,o)=>handleSelectFilterOption(i,o,col)"
+                          :maxTagCount="1"
                           @change="(v)=>handleChangeSelectCommon(v,id,row,col)"
                           @search="(v)=>handleSearchSelect(v,id,row,col)"
                           @blur="(v)=>handleBlurSearch(v,id,row,col)"
@@ -201,6 +202,55 @@
                         >{{ getSelectTranslateText(selectValues[id], row, col) }}</span>
                       </a-tooltip>
                     </template>
+
+                    <!-- 部门选择 -->
+                    <template v-else-if="col.type === formTypes.sel_depart">
+                      <a-tooltip v-bind="buildTooltipProps(row, col, id)">
+                        <j-select-depart
+                          v-if="isEditRow(row, col)"
+                          :id="id"
+                          :key="i"
+                          v-bind="buildProps(row,col)"
+                          style="width: 100%;"
+                          :value="departCompValues[id]"
+                          :placeholder="replaceProps(col, col.placeholder)"
+                          :trigger-change="true"
+                          :multi="true"
+                          @change="(v)=>handleChangeDepartCommon(v,id,row,col)"
+                        />
+                        <span
+                          v-else
+                          class="j-td-span no-edit"
+                          :class="{disabled: buildProps(row,col).disabled}"
+                          @click="handleEditRow(row, col)"
+                        >{{ departCompValues[id] }}</span>
+                      </a-tooltip>
+                    </template>
+
+                    <!-- 用户选择 -->
+                    <template v-else-if="col.type === formTypes.sel_user">
+                      <a-tooltip v-bind="buildTooltipProps(row, col, id)">
+                        <j-select-user-by-dep
+                          v-if="isEditRow(row, col)"
+                          :id="id"
+                          :key="i"
+                          v-bind="buildProps(row,col)"
+                          style="width: 100%;"
+                          :value="userCompValues[id]"
+                          :placeholder="replaceProps(col, col.placeholder)"
+                          :trigger-change="true"
+                          :multi="true"
+                          @change="(v)=>handleChangeUserCommon(v,id,row,col)"
+                        />
+                        <span
+                          v-else
+                          class="j-td-span no-edit"
+                          :class="{disabled: buildProps(row,col).disabled}"
+                          @click="handleEditRow(row, col)"
+                        >{{ userCompValues[id] }}</span>
+                      </a-tooltip>
+                    </template>
+
                     <!-- date -->
                     <template v-else-if="col.type === formTypes.date || col.type === formTypes.datetime">
                       <a-tooltip v-bind="buildTooltipProps(row, col, id)">
@@ -300,7 +350,7 @@
                         <a-tooltip v-bind="buildTooltipProps(row, col, id)">
                           <a-upload
                             name="file"
-                            :data="{'isup':1}"
+                            :data="{'isup':1, ...(col.data||{})}"
                             :multiple="false"
                             :action="col.action"
                             :headers="uploadGetHeaders(row,col)"
@@ -331,6 +381,8 @@
                           :dest-fields="col.destFields"
                           :code="col.popupCode"
                           :groupId="caseId"
+                          :param="col.param"
+                          :sorter="col.sorter"
                           @input="(value,others)=>popupCallback(value,others,id,row,col,rowIndex)"
                         />
                         <span
@@ -545,6 +597,33 @@
                     </template>
                     <!-- select搜索 -end -->
 
+                    <!-- select异步搜索 -begin -->
+                    <template v-else-if="col.type === formTypes.sel_search_async">
+                      <a-tooltip v-bind="buildTooltipProps(row, col, id)">
+                        <j-search-select-tag
+                          v-if="isEditRow(row, col)"
+                          :id="id"
+                          :key="i"
+                          :value="searchSelectAsyncValues[id]"
+                          :placeholder="replaceProps(col, col.placeholder)"
+                          :dict="col.dict"
+                          :async="true"
+                          :getPopupContainer="getParentContainer"
+                          v-bind="buildProps(row,col)"
+                          style="width: 100%;"
+                          @change="(v)=>handleSearchSelectAsyncChange(v,id,row,col)"
+                        >
+                        </j-search-select-tag>
+                        <span
+                          v-else
+                          class="j-td-span no-edit"
+                          :class="{disabled: buildProps(row,col).disabled}"
+                          @click="handleEditRow(row, col)"
+                        >{{ searchSelectAsyncValues[id] }}</span>
+                      </a-tooltip>
+                    </template>
+                    <!-- select异步搜索 -end -->
+
                     <div v-else-if="col.type === formTypes.slot" :key="i">
                       <a-tooltip v-bind="buildTooltipProps(row, col, id)">
                         <slot
@@ -565,7 +644,7 @@
                     </div>
 
                     <!-- else (normal) -->
-                    <span v-else :key="i" v-bind="buildProps(row,col)">{{ inputValues[rowIndex][col.key] }}</span>
+                    <span class="comp-normal" v-else :key="i" :title="inputValues[rowIndex][col.key]" v-bind="buildProps(row,col)">{{ inputValues[rowIndex][col.key] }}</span>
                   </template>
                 </div>
               </div>
@@ -622,12 +701,13 @@
   import Draggable from 'vuedraggable'
   import { ACCESS_TOKEN } from '@/store/mutation-types'
   import { FormTypes, VALIDATE_NO_PASSED } from '@/utils/JEditableTableUtil'
-  import { cloneObject, randomString, randomNumber, getEventPath } from '@/utils/util'
+  import { cloneObject, getEventPath, randomNumber, randomString } from '@/utils/util'
   import JDate from '@/components/jeecg/JDate'
   import { filterDictText, initDictOptions } from '@/components/dict/JDictSelectUtil'
-  import { getFileAccessHttpUrl } from '@/api/manage';
+  import { getFileAccessHttpUrl } from '@/api/manage'
   import JInputPop from '@/components/jeecg/minipop/JInputPop'
   import JFilePop from '@/components/jeecg/minipop/JFilePop'
+  import { getNoAuthCols } from '@/utils/authFilter'
 
   // 行高，需要在实例加载完成前用到
   let rowHeight = 61
@@ -704,6 +784,11 @@
         type: Boolean,
         default: true
       },
+      authPre: {
+        type: String,
+        required: false,
+        default: ''
+      },
     },
     data() {
       return {
@@ -749,11 +834,16 @@
         uploadValues: {},
         //popup信息
         popupValues: {},
+        //部门组件信息
+        departCompValues:{},
+        //用户组件信息
+        userCompValues: {},
 
         radioValues: {},
         metaCheckboxValues: {},
         multiSelectValues: {},
         searchSelectValues: {},
+        searchSelectAsyncValues: {},
         // 绑定左侧选择框已选择的id
         selectedRowIds: [],
         // 存储被删除行的id
@@ -775,6 +865,8 @@
         // 上次push数据的事件，用于判断是否点击过快
         lastPushTimeMap: new Map(),
         number:0,
+        //不显示的按钮编码
+        excludeCode:[]
       }
     },
     created() {
@@ -883,6 +975,8 @@
       columns: {
         immediate: true,
         handler(columns) {
+          //列改变的时候重新设置按钮权限信息
+          this.loadExcludeCode()
           // 兼容IE
           this.getElementPromise('tbody').then(() => {
             columns.forEach(column => {
@@ -964,41 +1058,52 @@
         this.visibleTrEls = []
         // 判断是否是首次进入该方法，如果是就不清空行，防止删除了预添加的数据
         if (!this.isFirst) {
-          // inputValues：用来存储input表单的值
-          // 数组里的每项都是一个对象，对象里每个key都是input的rowKey，值就是input的值，其中有个id的字段来区分
-          // 示例：
-          // [{
-          //    id: "_jet-4sp0iu-15541771111770"
-          //    dbDefaultVal: "aaa",
-          //    dbFieldName: "bbb",
-          //    dbFieldTxt: "ccc",
-          //    dbLength: 32
-          // }]
-          this.inputValues = []
-          this.rows = []
-          this.deleteIds = []
-          this.selectValues = {}
-          this.checkboxValues = {}
-          this.jdateValues = {}
-          this.jInputPopValues = {}
-          this.slotValues = {}
-          this.selectedRowIds = []
-          this.tooltips = {}
-          this.notPassedIds = []
-          this.uploadValues = []
-          this.popupValues = []
-          this.radioValues = []
-          this.multiSelectValues = []
-          this.searchSelectValues = []
-          this.scrollTop = 0
-          this.$nextTick(() => {
-            this.getElement('tbody').scrollTop = 0
-          })
+         this.clearRow();
         } else {
           this.isFirst = false
         }
       },
+      /**清空行*/
+      clearRow(){
+        // inputValues：用来存储input表单的值
+        // 数组里的每项都是一个对象，对象里每个key都是input的rowKey，值就是input的值，其中有个id的字段来区分
+        // 示例：
+        // [{
+        //    id: "_jet-4sp0iu-15541771111770"
+        //    dbDefaultVal: "aaa",
+        //    dbFieldName: "bbb",
+        //    dbFieldTxt: "ccc",
+        //    dbLength: 32
+        // }]
+        this.inputValues = []
+        this.rows = []
+        this.deleteIds = []
+        this.selectedRowIds = []
+        this.tooltips = {}
+        this.notPassedIds = []
+        // 重置values
+        this.selectValues = {}
+        this.checkboxValues = {}
+        this.jdateValues = {}
+        this.jInputPopValues = {}
+        this.departCompValues = {}
+        this.userCompValues = {}
+        this.slotValues = {}
+        //update-begin-author:shunjlei date:20210415 for:类型赋值错误
+        this.uploadValues = {}
+        this.popupValues = {}
+        this.radioValues = {}
+        this.multiSelectValues = {}
+        this.searchSelectValues = {}
+        this.searchSelectAsyncValues = {}
+        //update-end-author:shunjlei date:20210415 for:类型赋值错误
 
+        // 重置滚动条
+        this.scrollTop = 0
+        this.$nextTick(() => {
+          this.getElement('tbody').scrollTop = 0
+        })
+      },
       /** 同步滚动条状态 */
       syncScrollBar(scrollLeft) {
         // this.style.tbody.left = `${scrollLeft}px`
@@ -1058,6 +1163,8 @@
         let checkboxValues = { ...this.checkboxValues }
         let selectValues = { ...this.selectValues }
         let jdateValues = { ...this.jdateValues }
+        let departCompValues = { ...this.departCompValues }
+        let userCompValues = { ...this.userCompValues }
         let jInputPopValues = { ...this.jInputPopValues }
         let slotValues = { ...this.slotValues }
         let uploadValues = { ...this.uploadValues }
@@ -1065,6 +1172,7 @@
         let radioValues = { ...this.radioValues }
         let multiSelectValues = { ...this.multiSelectValues }
         let searchSelectValues = { ...this.searchSelectValues }
+        let searchSelectAsyncValues = { ...this.searchSelectAsyncValues }
         // 禁用行的id
         let disabledRowIds = (this.disabledRowIds || [])
         dataSource.forEach((data, newValueIndex) => {
@@ -1144,12 +1252,18 @@
 
             } else if (column.type === FormTypes.popup) {
               popupValues[inputId] = sourceValue
+            } else if (column.type === FormTypes.sel_depart) {
+              departCompValues[inputId] = sourceValue
+            } else if (column.type === FormTypes.sel_user) {
+              userCompValues[inputId] = sourceValue
             } else if (column.type === FormTypes.input_pop) {
               jInputPopValues[inputId] = sourceValue
             } else if (column.type === FormTypes.radio) {
               radioValues[inputId] = sourceValue
             } else if (column.type === FormTypes.sel_search) {
               searchSelectValues[inputId] = sourceValue
+            } else if (column.type === FormTypes.sel_search_async) {
+              searchSelectAsyncValues[inputId] = sourceValue
             } else if (column.type === FormTypes.list_multi) {
               if (typeof sourceValue === 'string' && sourceValue.length > 0) {
                 multiSelectValues[inputId] = sourceValue.split(',')
@@ -1170,6 +1284,8 @@
                   status: 'done',
                   path: sourceValue
                 }
+              } else {
+                uploadValues[inputId] = null
               }
             } else {
               value[column.key] = sourceValue
@@ -1225,6 +1341,8 @@
         this.checkboxValues = checkboxValues
         this.selectValues = selectValues
         this.jdateValues = jdateValues
+        this.departCompValues = departCompValues
+        this.userCompValues = userCompValues
         this.jInputPopValues = jInputPopValues
         this.slotValues = slotValues
         this.uploadValues = uploadValues
@@ -1232,6 +1350,7 @@
         this.radioValues = radioValues
         this.multiSelectValues = multiSelectValues
         this.searchSelectValues = searchSelectValues
+        this.searchSelectAsyncValues = searchSelectAsyncValues
         // 重新计算所有统计列
         this.recalcAllStatisticsColumns()
         // 更新到 dom
@@ -1440,6 +1559,12 @@
             } else if (column.type === FormTypes.date || column.type === FormTypes.datetime) {
               value[column.key] = this.jdateValues[inputId]
 
+            } else if (column.type === FormTypes.sel_depart) {
+              value[column.key] = this.departCompValues[inputId]
+
+            } else if (column.type === FormTypes.sel_user) {
+              value[column.key] = this.userCompValues[inputId]
+
             } else if (column.type === FormTypes.input_pop) {
               value[column.key] = this.jInputPopValues[inputId]
 
@@ -1460,6 +1585,8 @@
               value[column.key] = this.radioValues[inputId]
             } else if (column.type === FormTypes.sel_search) {
               value[column.key] = this.searchSelectValues[inputId]
+            } else if (column.type === FormTypes.sel_search_async) {
+              value[column.key] = this.searchSelectAsyncValues[inputId]
             } else if (column.type === FormTypes.list_multi) {
               if (!this.multiSelectValues[inputId] || this.multiSelectValues[inputId].length === 0) {
                 value[column.key] = ''
@@ -1579,6 +1706,8 @@
           selectValues: this.selectValues,
           checkboxValues: this.checkboxValues,
           jdateValues: this.jdateValues,
+          departCompValues: this.departCompValues,
+          userCompValues: this.userCompValues,
           jInputPopValues: this.jInputPopValues,
           slotValues: this.slotValues,
           uploadValues: this.uploadValues,
@@ -1586,6 +1715,7 @@
           radioValues: this.radioValues,
           multiSelectValues: this.multiSelectValues,
           searchSelectValues: this.searchSelectValues,
+          searchSelectAsyncValues: this.searchSelectAsyncValues,
         })
       },
       /** 设置某行某列的值 */
@@ -1633,6 +1763,10 @@
                       edited = true
                     } else if (column.type === FormTypes.date || column.type === FormTypes.datetime) {
                       edited = this.setOneValue(this.jdateValues, modelKey, newValue)
+                    } else if (column.type === FormTypes.sel_depart) {
+                      edited = this.setOneValue(this.departCompValues, modelKey, newValue)
+                    } else if (column.type === FormTypes.sel_user) {
+                      edited = this.setOneValue(this.userCompValues, modelKey, newValue)
                     } else if (column.type === FormTypes.input_pop) {
                       edited = this.setOneValue(this.jInputPopValues, modelKey, newValue)
                     } else if (column.type === FormTypes.slot) {
@@ -1647,6 +1781,8 @@
                       edited = this.setOneValue(this.multiSelectValues, modelKey, newValue, true)
                     } else if (column.type === FormTypes.sel_search) {
                       edited = this.setOneValue(this.searchSelectValues, modelKey, newValue)
+                    } else if (column.type === FormTypes.sel_search_async) {
+                      edited = this.setOneValue(this.searchSelectAsyncValues, modelKey, newValue)
                     } else {
                       edited = false
                     }
@@ -1809,7 +1945,7 @@
 
               // 兼容 online 的规则
               let foo = [
-                { title: '6到16位数字', value: 'n6-16', pattern: /^\d{6,18}$/ },
+                { title: '6到16位数字', value: 'n6-16', pattern: /^\d{6,16}$/ },
                 { title: '6到16位任意字符', value: '*6-16', pattern: /^.{6,16}$/ },
                 { title: '6到18位字母', value: 's6-18', pattern: /^[a-z|A-Z]{6,18}$/ },
                 { title: '网址', value: 'url', pattern: /^(?:([A-Za-z]+):)?(\/{0,3})([0-9.\-A-Za-z]+)(?::(\d+))?(?:\/([^?#]*))?(?:\?([^#]*))?(?:#(.*))?$/ },
@@ -2183,6 +2319,20 @@
           this.elemValueChange(FormTypes.date, row, column, value)
         }
       },
+      //部门组件值改变
+      handleChangeDepartCommon(value, id, row, column){
+        this.departCompValues = this.bindValuesChange(value, id, 'departCompValues')
+        this.validateOneInput(value, row, column, this.notPassedIds, true, 'change')
+        // 触发valueChange 事件
+        this.elemValueChange(FormTypes.sel_depart, row, column, value)
+      },
+      //用户组件值改变
+      handleChangeUserCommon(value, id, row, column){
+        this.userCompValues = this.bindValuesChange(value, id, 'userCompValues')
+        this.validateOneInput(value, row, column, this.notPassedIds, true, 'change')
+        // 触发valueChange 事件
+        this.elemValueChange(FormTypes.sel_user, row, column, value)
+      },
       handleChangeJInputPopCommon(value, id, row, column){
         this.jInputPopValues = this.bindValuesChange(value, id, 'jInputPopValues')
         // 做单个表单验证
@@ -2462,7 +2612,7 @@
         }
       },
       /** view辅助方法：构建 td style */
-      buildTdStyle(col,isTitle) {
+      buildTdStyle(col) {
         const isEmptyWidth = (column) => (column.type === FormTypes.hidden || column.width === '0px' || column.width === '0' || column.width === 0)
 
         let style = {}
@@ -2475,13 +2625,15 @@
           style['width'] = '120px'
         }
         //update-begin-author:lvdandan date:20201116 for:LOWCOD-984 默认风格功能测试附表样式问题 日期时间控件长度太大
-        //是否为标题，如果是时间控件设为200，时间控件的标题设为240 时间
+        //如果是时间控件设为200px
         if(col.type === FormTypes.datetime){
-          if(true === isTitle){
-            style['width'] = '240px'
-          }else{
-            style['width'] = '200px'
-          }
+          style['width'] = '200px'
+        }
+        if(col.type === FormTypes.sel_user && !col.width){
+          style['width'] = '220px'
+        }
+        if(col.type === FormTypes.sel_depart && !col.width){
+          style['width'] = '160px'
         }
         //update-end-author:lvdandan date:20201116 for:LOWCOD-984 默认风格功能测试附表样式问题 日期时间控件长度太大
 
@@ -2599,7 +2751,7 @@
         }
         this.setOneValue(this.popupValues, id, popupValue)
         // 做单个表单验证
-        this.validateOneInput(value, row, column, this.notPassedIds, true, 'change')
+        this.validateOneInput(popupValue, row, column, this.notPassedIds, true, 'change')
         // 触发valueChange 事件
         this.elemValueChange('input', row, column, value)
       },
@@ -2625,6 +2777,11 @@
         this.searchSelectValues = this.bindValuesChange(value, id, 'searchSelectValues')
         this.validateOneInput(value, row, column, this.notPassedIds, true, 'change')
         this.elemValueChange(FormTypes.sel_search, row, column, value)
+      },
+      handleSearchSelectAsyncChange(value, id, row, column) {
+        this.searchSelectAsyncValues = this.bindValuesChange(value, id, 'searchSelectAsyncValues')
+        this.validateOneInput(value, row, column, this.notPassedIds, true, 'change')
+        this.elemValueChange(FormTypes.sel_search_async, row, column, value)
       },
       filterOption(input, option) {
         return option.componentOptions.children[0].text.toLowerCase().indexOf(input.toLowerCase()) >= 0
@@ -2718,15 +2875,35 @@
       removeEventListener() {
         window.removeEventListener('mouseup', this.handleMouseup)
       },
-
       /* --------------------------- 2020年5月18日 默认span模式 ------------------------------ */
 
+      //获取没有授权的按钮编码
+      loadExcludeCode(){
+        if(!this.authPre || this.authPre.length==0){
+          this.excludeCode = []
+        }else{
+          let pre = this.authPre
+          if(!pre.endsWith(':')){
+            pre += ':'
+          }
+          this.excludeCode = getNoAuthCols(pre)
+        }
+      },
+      //判断button是否显示
+      buttonPermission(code){
+        if(!this.excludeCode || this.excludeCode.length==0){
+          return true
+        }else{
+          return this.excludeCode.indexOf(code)<0
+        }
+      }
 
     },
     beforeDestroy() {
       this.removeEventListener()
       this.destroyCleanGroupRequest = true
-    },
+    }
+
   }
 </script>
 
@@ -2867,6 +3044,8 @@
         border-bottom: @border;
         transition: background-color 300ms;
         width: 100%;
+        height: 61px;
+        overflow: hidden;
         position: absolute;
         left: 0;
         z-index: 10;
@@ -2974,6 +3153,12 @@
           &.ant-checkbox-wrapper {
             height: auto;
           }
+        }
+
+        .comp-normal {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .j-td-span {
